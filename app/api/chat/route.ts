@@ -14,14 +14,14 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-const MODEL_ID = (process.env.GEMINI_MODEL ?? "gemini-3.8-flash").replace(
+const MODEL_ID = (process.env.GEMINI_MODEL ?? "gemini-2.5-flash").replace(
   /^models\//,
   ""
 );
 
 const SYSTEM_PROMPT =
   "You are EduQuery AI, an expert EdTech study assistant. When users upload study documents or PDFs, " +
-  "analyze them thoroughly, answer questions based on their content, and provide clear citations or reference snippets when applicable. " +
+  "analyze them thoroughly, answer questions based strictly on their content, and provide clear citations or reference snippets when applicable. " +
   "When the user asks for a summary, explanation, or study notes, call the generateStudyCard tool, " +
   "then add one short sentence after the card. For greetings and general questions, just reply normally in text.";
 
