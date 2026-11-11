@@ -17,7 +17,7 @@ const initialMessages: UIMessage[] = [
     parts: [
       {
         type: "text",
-        text: "I am fully connected to the Gemini AI backend! How can I help you with your studies today?",
+        text: "Welcome to EduQuery AI! Upload a study PDF or ask a question to get started.",
       },
     ],
   },
@@ -29,13 +29,15 @@ const transport = new DefaultChatTransport({
 
 function StudyCardView({ card }: { card: StudyCard }) {
   return (
-    <div className="my-1 w-full rounded-xl border border-blue-100 bg-blue-50 p-4">
-      <h3 className="text-base font-bold text-blue-900">{card.title}</h3>
-      <p className="mt-2 text-[15px] leading-relaxed text-gray-800">
+    <div className="mt-1 w-full p-5 bg-blue-50 border-l-4 border-blue-600 rounded-r-xl shadow-sm text-left">
+      <h4 className="font-bold text-blue-900 text-lg mb-2">
+        📘 {card.title || "Study Card"}
+      </h4>
+      <p className="text-sm text-gray-700 mb-3 leading-relaxed">
         {card.summary}
       </p>
       {card.keyPoints?.length > 0 && (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] text-gray-800">
+        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
           {card.keyPoints.map((point, i) => (
             <li key={i}>{point}</li>
           ))}
@@ -47,6 +49,9 @@ function StudyCardView({ card }: { card: StudyCard }) {
 
 export default function Home() {
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState<FileList | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status, error } = useChat({
     id: "eduquery-chat", // fixed ID, so no Math.random() runs during prerender
@@ -55,36 +60,52 @@ export default function Home() {
   });
 
   const isLoading = status === "submitted" || status === "streaming";
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasFiles = !!files && files.length > 0;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    sendMessage({ text: input });
-    setInput("");
+  const clearFiles = () => {
+    setFiles(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value);
+  const onSubmitWithFiles = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isLoading) return;
+    if (!input.trim() && !hasFiles) return;
+
+    sendMessage({
+      text: input.trim() || "Please summarize the attached document.",
+      files,
+    });
+
+    setInput("");
+    clearFiles();
   };
 
   const lastMessage = messages[messages.length - 1];
   const showTyping = isLoading && lastMessage?.role === "user";
 
   return (
-    <main className="flex flex-col h-screen bg-gray-50 text-gray-800 font-sans">
-      <header className="sticky top-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-md border-b border-gray-200 px-6 py-4 shadow-sm">
+    // 1. Added overflow-hidden to prevent the entire page from scrolling
+    <main className="flex flex-col h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
+      
+      {/* 2. Removed sticky, added flex-shrink-0 so it stays at the top */}
+      <header className="flex-shrink-0 flex items-center justify-between bg-white border-b border-gray-200 px-6 py-4 shadow-sm z-10">
         <h1 className="text-xl font-bold tracking-tight text-gray-900">
           EduQuery <span className="text-blue-600">AI</span>
         </h1>
+        <span className="text-xs font-medium px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
+          RAG & Document Mode Active
+        </span>
       </header>
 
+      {/* 3. flex-1 makes this area take exactly the remaining height between header and footer */}
       <div className="flex-1 overflow-y-auto w-full scroll-smooth">
-        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-32">
+        {/* Reduced pb-32 to pb-6 since we no longer have a floating footer overlapping it */}
+        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-6">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -106,6 +127,17 @@ export default function Home() {
                 }`}
               >
                 {msg.parts.map((part, idx) => {
+                  if (part.type === "file") {
+                    return (
+                      <div
+                        key={idx}
+                        className="text-xs bg-blue-700 text-white px-2.5 py-1 rounded-md flex items-center gap-1.5"
+                      >
+                        📎 {part.filename || "Attached File"}
+                      </div>
+                    );
+                  }
+
                   if (part.type === "text") {
                     if (!part.text) return null;
                     return (
@@ -179,27 +211,75 @@ export default function Home() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
+          {/* Added a tiny bit of height so the last message always has breathing room above the input */}
+          <div ref={messagesEndRef} className="h-2" />
         </div>
       </div>
 
-      <div className="fixed bottom-0 w-full bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-6 pb-6 px-4">
+      {/* 4. Removed 'fixed bottom-0', added 'flex-shrink-0' so it naturally sits at the bottom */}
+      <div className="flex-shrink-0 w-full bg-gray-50 pt-2 pb-6 px-4 border-t border-gray-200/50">
         <div className="max-w-3xl mx-auto">
+          {hasFiles && (
+            <div className="mb-2 px-4 py-2 bg-white border border-blue-200 rounded-xl shadow-sm flex items-center justify-between text-sm text-blue-800">
+              <span className="flex items-center gap-2 truncate">
+                📎 <strong>{files![0].name}</strong> ready to analyze
+              </span>
+              <button
+                type="button"
+                onClick={clearFiles}
+                className="text-gray-400 hover:text-red-600 font-bold px-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <form
-            onSubmit={handleSubmit}
+            onSubmit={onSubmitWithFiles}
             className="relative flex items-center shadow-lg bg-white rounded-full border border-gray-200 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 transition-all"
           >
             <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => setFiles(e.target.files ?? undefined)}
+              accept=".pdf,.txt"
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload Study Document"
+              className="ml-3 p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-full"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"
+                />
+              </svg>
+            </button>
+
+            <input
               type="text"
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              placeholder="Message EduQuery AI..."
-              className="flex-1 px-6 py-4 outline-none text-[15px] bg-transparent disabled:opacity-50"
+              placeholder="Ask a question or upload a study PDF..."
+              className="flex-1 px-4 py-4 outline-none text-[15px] bg-transparent disabled:opacity-50"
             />
+
             <button
               type="submit"
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && !hasFiles) || isLoading}
               className="mr-2 p-2 w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 transition-colors flex items-center justify-center"
             >
               <svg
@@ -212,11 +292,6 @@ export default function Home() {
               </svg>
             </button>
           </form>
-          <div className="text-center mt-2">
-            <span className="text-[11px] text-gray-400">
-              EduQuery AI can make mistakes. Check important info.
-            </span>
-          </div>
         </div>
       </div>
     </main>

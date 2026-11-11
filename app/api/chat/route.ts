@@ -20,8 +20,9 @@ const MODEL_ID = (process.env.GEMINI_MODEL ?? "gemini-3.8-flash").replace(
 );
 
 const SYSTEM_PROMPT =
-  "You are EduQuery AI, a friendly study assistant. Explain things clearly and simply. " +
-  "When the user asks for a summary, explanation, or study notes on a topic, call the generateStudyCard tool, " +
+  "You are EduQuery AI, an expert EdTech study assistant. When users upload study documents or PDFs, " +
+  "analyze them thoroughly, answer questions based on their content, and provide clear citations or reference snippets when applicable. " +
+  "When the user asks for a summary, explanation, or study notes, call the generateStudyCard tool, " +
   "then add one short sentence after the card. For greetings and general questions, just reply normally in text.";
 
 export async function POST(req: Request) {
@@ -36,12 +37,14 @@ export async function POST(req: Request) {
       tools: {
         generateStudyCard: tool({
           description:
-            "Generate a structured study flashcard to summarize a topic. Use this whenever a user asks for a summary, explanation, or study notes.",
+            "Generate a structured study flashcard to summarize a topic or uploaded document section.",
           inputSchema: z.object({
-            title: z.string().describe("The main topic or title of the study card"),
+            title: z
+              .string()
+              .describe("The main topic or title of the study card"),
             summary: z
               .string()
-              .describe("A clear, concise summary of the topic"),
+              .describe("A clear, concise summary based on the context or topic"),
             keyPoints: z
               .array(z.string())
               .describe("An array of 3 to 5 key bullet points to remember"),
